@@ -178,10 +178,9 @@ calculate_centre_vectors() {
 
 Aquí tenemos dos bucles anidados, este bucle anidado tiene las iteraciones prefijadas y no hay elementos que salgan del bucle. 
 
-Por último los elementos que se escriben son `new_uij` (privada), `degree_of_memb` (que no colisiona porque no se escribe la misma posición `ij` en dos iteraciones diferentes) y max_diff, la cual sí es un problema porque el `if` de una iteración puede ser un problema para otras iteraciones, si el valor de `diff` de otra iteración (de otro hilo) es mayor que el valor de `max_diff` almacenado y mayor que el de la iteración que estamos considerando y el valor de `diff` de la iteración del hilo que estamos considerando es también mayor que `max_diff`, entonces estaremos actualizando un valor de `max_diff` que no deberíamos. 
+El primer bucle anidado escribe en la variable `t` en una posición diferente para cada iteración con lo que sería paralelizable.
 
-Si paralelizásemos sin esta consideración el valor `max_diff` que devuelve la función puede no ser el que tiene la diferencia máxima entre el valor que devuelve `get_new_value(i,j)` y el valor almacenado en `degree_of_memb[i][j]`
-
+Por otra parte el segundo bucle anidado tiene en su interior otro bucle más que calcula un agregado a las variables `numerator` y `denominator` para cada iteración y posteriormente a dicho agregado opera con el para calcular la posición `jk`de la matriz `cluster_centre`. Teniendo en cuenta que si fijamos una posición de `j` y otra de `k` lo que haría una iteración aislada del resto, podría calcular todos los valores del agregado `numerator` y `denominator` para posteriormente aplicarlos para calcular `cluster_centre` así que este bucle interior aunque a priori parece un problema de paralelizado no lo es si paralelizamos los bucles exteriores.
 
 
 
