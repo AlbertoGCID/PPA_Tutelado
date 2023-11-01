@@ -252,7 +252,7 @@ get_new_value(int i, int j) {
 
 ```
 
-### 3.1.2 Tiempos
+### 3.2.2 Tiempos
 
 Como podemos comprobar en la siguiente gráfica
 
@@ -267,12 +267,98 @@ Si aplicamos la función para analizar la carga nos devuelve lo siguiente:
 Da exactamente el mismo resultado que en el paralelizado anterior, parece que es lo mismo paralelizar `get_norm` como `get_new_value`, hay que tener en cuenta que get_new_value también es una función pequeña que es llamada muchas veces, habría que probar con la función que la llama a ella, es decir `update_degree_of_membership`
 
 
+## 3.3 Paralelizado de la funcion `update_degree_of_membership`
+
+Eliminamos el paralelizado de la función anterior y paralelizamos únicamente esta función.
+
+### 3.3.1 Código
+
+En esta paralelización tenemos un bucle anidado en el cual se quiere calcular el máximo de una diferencia, por lo demás son dos bucles perfectamente anidados los cuales no tienen conflictos entre si dado que la única variable que se escribe y debe ser compartida es `degree_of_memb` la cual dos iteraciones distintas nunca acceden a la misma localización de dicha variable. Por ello se utiliza la directiva collapse que permite la parlelización simultánea de bucles perfectamente anidados. Como variables privadas tenemos `i` y `j` al ser los índices de los bucles y también `diff` y `new_uij` dado que su valor es independiente para cada iteración. 
+
+La variable `degree_of_memb` es una matriz a la que cada iteracción accede a una posición distinta de la matriz modificándola, por ello deberá ser compartida. 
+
+Por último está la variable `max_diff`, la cual es el máximo entre todas las iteraciones, por ello se declara con el método `reduction` que permite combinar los resultados de los diferentes hilos para así hayar el máximo independientemente de qué hilo la modifique antes.
+
+```c
+double
+update_degree_of_membership() {
+    int i, j;
+    double new_uij;
+    double max_diff = 0.0, diff;
+    #pragma omp parallel private(i,j,diff,new_uij) shared(degree_of_memb) reduction(max:max_diff)
+    #pragma omp for collapse(2)
+    for (j = 0; j < num_clusters; j++) {
+        for (i = 0; i < num_data_points; i++) {
+            new_uij = get_new_value(i, j);
+            diff = new_uij - degree_of_memb[i][j];
+            if (diff > max_diff)
+                max_diff = diff;
+            degree_of_memb[i][j] = new_uij;
+        }
+    }
+    return max_diff;
+}
+```
+
+### 3.3.2 Tiempos
+
+Como podemos comprobar en la siguiente gráfica
+
+![Tiempo simple paralelizado update degree of membership](resources/paralelizado_update_degree_tiempo_simple.png)
+
+El tiempo global de la ejecución del programa no ha variado.
+
+Si aplicamos la función para analizar la carga nos devuelve lo siguiente:
+
+![Análisis de tiempo de la función](resources/paralelizado_update_degree_analisis_tiempo.png)
+
+No sé qué pasa, no mejora nada de nada. 
+
+Con respecto al secuencial
+
+`get_norm` pasa de tardar 1.62 segundos a 0.2
+
+`get_new_value` pasa de tardar 1.18 segundos a 1.55
+
+`update_degree_of_membership` pasa de tardar 0.33 a tardar 1.11
+
+`print_data_points` pasa de no tardar nada apreciable a tardar 0.02 
+
+Algo que no tiene mucho sentido es que según el grafo generado con esta paralelización se indica lo siguiente
 
 
+![Análisis del grafo de llamadas](resources/grafo_secuencial.png)
+
+En la secuencia número 1 (que corresponde a `print_data_points`) se indica que llama a la función `update_degree_of_membership` pero si analizamos su código
+
+```c
+void
+print_data_points(char *fname) {
+    int i, j;
+    FILE *f;
+    if (fname == NULL)
+        f = stdout;
+    else if ((f = fopen(fname, "w")) == NULL) {
+        printf("Cannot create output file.\n");
+        exit(1);
+    }
+    fprintf(f, "Data points:\n");
+    for (i = 0; i < num_data_points; i++) {
+        printf("Data[%d]: ", i);
+        for (j = 0; j < num_dimensions; j++) {
+            printf("%.5lf ", data_point[i][j]);
+        }
+        printf("\n");
+    }
+    if (fname == NULL)
+        fclose(f);
+}
+```
+
+No se ve por ninguna parte que dicha función llame a `update_degree_of_membership`
 
 
-
-
+**PEDIR TUTORÍA**
 
 
 
