@@ -100,15 +100,19 @@ calculate_centre_vectors() {
     return 0;
 }
 
+
 double
 get_norm(int i, int j) {
     int k;
     double sum = 0.0;
+    #pragma omp parallel 
+    #pragma omp for private(k) shared(i,j,data_point,cluster_centre,num_dimensions) reduction(+:sum)
     for (k = 0; k < num_dimensions; k++) {
         sum += pow(data_point[i][k] - cluster_centre[j][k], 2);
     }
     return sqrt(sum);
 }
+
 
 double
 get_new_value(int i, int j) {

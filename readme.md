@@ -183,6 +183,88 @@ El primer bucle anidado escribe en la variable `t` en una posición diferente pa
 Por otra parte el segundo bucle anidado tiene en su interior otro bucle más que calcula un agregado a las variables `numerator` y `denominator` para cada iteración y posteriormente a dicho agregado opera con el para calcular la posición `jk`de la matriz `cluster_centre`. Teniendo en cuenta que si fijamos una posición de `j` y otra de `k` lo que haría una iteración aislada del resto, podría calcular todos los valores del agregado `numerator` y `denominator` para posteriormente aplicarlos para calcular `cluster_centre` así que este bucle interior aunque a priori parece un problema de paralelizado no lo es si paralelizamos los bucles exteriores.
 
 
+# 3. Paralelizado Local
+
+Todas las pruebas de paralelizado de este apartado se han realizado fijando el número de hilos en 8 de los 12 disponibles en el equipo local.
+
+## 3.1 Paralelizado de la funcion `get_norm`
+
+### 3.1.1 Código
+
+El primer paso es paralelizar la función más interna para ver si conseguimos una mejora en los tiempos globales, para ello aplicamos un paralelizado simple de un bucle `for` fijando la variable `k` como privada al formar parte de los índices, la variable `sum` al ser un agregado debemos fijarla con reduction para que cada hilo calcule los sumatorios parciales que pueden ser sumados al final del bucle.
+
+```c
+double
+get_norm(int i, int j) {
+    int k;
+    double sum = 0.0;
+    #pragma omp parallel 
+    #pragma omp for private(k) shared(i,j,data_point,cluster_centre,num_dimensions) reduction(+:sum)
+    for (k = 0; k < num_dimensions; k++) {
+        sum += pow(data_point[i][k] - cluster_centre[j][k], 2);
+    }
+    return sqrt(sum);
+}
+```
+
+### 3.1.2 Tiempos
+
+Como podemos comprobar en la siguiente gráfica
+
+![Tiempo simple paralelizado get norm](resources/paralelizado_get_norm_tiempo_simple.png)
+
+
+El tiempo global de la ejecución del programa no ha variado.
+
+Si aplicamos la función para analizar la carga nos devuelve lo siguiente:
+
+![Análisis de tiempo de la función](resources/paralelizado_get_norm_analisis_tiempo.png)
+
+Aunque el tiempo global de la ejecución sigue siendo el mismo sí que ha habido un cambio, antes la función `get_norm` era la que gastaba la mayor parte del tiempo (1.62 segundos) pasando a 0.20 segundos (lo que es lógico al haber fijado el número de hilos a 8). El problema es que el resto de las funciones han tardado maś, como por ejemplo `get_new_value` la cual pasó de 1.18 segundos segundos a 1.55 segundos o `fcm` la cual no tenía coste temporal propio apreciable y ahora tiene 0.27 segundos. Esto quiere decir que aunque se ha reducido 8 veces el tiempo de la función que paralelizamos el overhead que provoca la creación de los 8 hilos y el manejo del paralelizado por cada llamada compensa dicha aceleración lo que hace que en el balance global tarde lo mismo.
+
+Esto tiene cierta lógica si tenemos en cuenta que son funciones muy sencillas que se llaman muchas veces, al reducir el tiempo en el que se ejecuta cada una la mejora en tiempo es muy limitada, lo ideal sería paralelizar las propias llamadas en lugar de las tareas que dichas llamadas realizan, es decir paralelizando la función que llama muchas veces directa o indirectamente a `get_norm`
+
+## 3.2 Paralelizado de la funcion `get_new_value`
+
+Eliminamos el paralelizado de la función anterior y paralelizamos únicamente esta función.
+
+### 3.2.1 Código
+
+En esta paralelización de manera análoga a la que se hizo en el apartado 3.1 se tiene un bucle `for` simple. En dicho bucle las variables `k` y `t` se fijan como privadas al ser un índice la primera y ser escrita con un valor diferente en caso de `t` para poder agregar a la variable `sum` en cada iteración, como es independiente y no toma valor hasta el bucle se fija como private. Por otra parte como `sum` es un agregado hay que tratarlo con reduction y el resto de las variables no se escriben o directamente se han inicializado fuera con lo que al no haber conflicto con ellas se fijan como compartidas.
+
+
+```c
+double
+get_new_value(int i, int j) {
+    int k;
+    double t, p, sum;
+    sum = 0.0;
+    p = 2 / (fuzziness - 1);
+    #pragma omp parallel 
+    #pragma omp for private(k,t) shared(p,fuzziness,i,j,num_clusters) reduction(+:sum)
+    for (k = 0; k < num_clusters; k++) {
+        t = get_norm(i, j) / get_norm(i, k);
+        t = pow(t, p);
+        sum += t;
+    }
+    return 1.0 / sum;
+}
+
+```
+
+### 3.1.2 Tiempos
+
+Como podemos comprobar en la siguiente gráfica
+
+![Tiempo simple paralelizado get new_value](resources/paralelizado_get_new_value_tiempo_simple.png)
+
+El tiempo global de la ejecución del programa no ha variado.
+
+Si aplicamos la función para analizar la carga nos devuelve lo siguiente:
+
+![Análisis de tiempo de la función](resources/paralelizado_get_new_value_analisis_tiempo.png)
+
+Da exactamente el mismo resultado que en el paralelizado anterior, parece que es lo mismo paralelizar `get_norm` como `get_new_value`, hay que tener en cuenta que get_new_value también es una función pequeña que es llamada muchas veces, habría que probar con la función que la llama a ella, es decir `update_degree_of_membership`
 
 
 
@@ -207,7 +289,7 @@ Por otra parte el segundo bucle anidado tiene en su interior otro bucle más que
 
 
 
-# 3. Paralelizado
+
 
 
 # 4. Resultados
