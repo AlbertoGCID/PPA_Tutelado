@@ -101,18 +101,18 @@ calculate_centre_vectors() {
 }
 
 
+
 double
 get_norm(int i, int j) {
     int k;
     double sum = 0.0;
-    #pragma omp parallel 
-    #pragma omp for private(k) shared(i,j,data_point,cluster_centre,num_dimensions) reduction(+:sum)
+    #pragma omp parallel private(k,cluster_centre,data_point) shared(i,j,num_dimensions) reduction(+:sum)
+    #pragma omp for 
     for (k = 0; k < num_dimensions; k++) {
         sum += pow(data_point[i][k] - cluster_centre[j][k], 2);
     }
     return sqrt(sum);
 }
-
 
 double
 get_new_value(int i, int j) {
@@ -214,11 +214,11 @@ main(int argc, char **argv) {
     printf("Number of clusters: %d\n", num_clusters);
     printf("Number of data-point dimensions: %d\n", num_dimensions);
     printf("Accuracy margin: %lf\n", epsilon);
-    print_membership_matrix("membership.matrix");
+    print_membership_matrix("membership_p_get_norm.matrix");
    
     printf
             ("------------------------------------------------------------------------\n");
     printf("The program run was successful...\n");
-    printf("Storing membership matrix in file 'membership.matrix'\n\n");
+    printf("Storing membership matrix in file 'membership_p_get_norm.matrix'\n\n");
     return 0;
 }

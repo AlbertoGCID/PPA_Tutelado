@@ -1,0 +1,7 @@
+Tiempo real de ejecución 1: 1.6500
+Tiempo real de ejecución 2: 1.5100
+Tiempo real de ejecución 3: 1.5200
+Tiempo real de ejecución 4: 1.5200
+Tiempo real de ejecución 5: 1.5200
+
+Media: 1.544

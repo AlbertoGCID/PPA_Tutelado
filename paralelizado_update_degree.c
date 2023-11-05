@@ -212,11 +212,11 @@ main(int argc, char **argv) {
     printf("Number of clusters: %d\n", num_clusters);
     printf("Number of data-point dimensions: %d\n", num_dimensions);
     printf("Accuracy margin: %lf\n", epsilon);
-    print_membership_matrix("membership.matrix");
+    print_membership_matrix("membership_p_update_degree.matrix");
    
     printf
             ("------------------------------------------------------------------------\n");
     printf("The program run was successful...\n");
-    printf("Storing membership matrix in file 'membership.matrix'\n\n");
+    printf("Storing membership matrix in file 'membership_p_update_degree.matrix'\n\n");
     return 0;
 }

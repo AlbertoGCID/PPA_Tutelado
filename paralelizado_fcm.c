@@ -116,14 +116,11 @@ get_new_value(int i, int j) {
     double t, p, sum;
     sum = 0.0;
     p = 2 / (fuzziness - 1);
-    #pragma omp parallel private(k,t,p,fuzziness) shared(i,j,num_clusters) reduction(+:sum)
-    #pragma omp for 
     for (k = 0; k < num_clusters; k++) {
         t = get_norm(i, j) / get_norm(i, k);
         t = pow(t, p);
         sum += t;
     }
-    
     return 1.0 / sum;
 }
 
@@ -148,7 +145,10 @@ int
 fcm(char *fname) {
     double max_diff;
     init(fname);
+    #pragma omp parallel
+    #pragma omp single nowait
     do {
+        #pragma omp task final(max_diff > epsilon)
         calculate_centre_vectors();
         max_diff = update_degree_of_membership();
     } while (max_diff > epsilon);
@@ -213,11 +213,11 @@ main(int argc, char **argv) {
     printf("Number of clusters: %d\n", num_clusters);
     printf("Number of data-point dimensions: %d\n", num_dimensions);
     printf("Accuracy margin: %lf\n", epsilon);
-    print_membership_matrix("membership_p_get_new_value.matrix");
+    print_membership_matrix("membership_fcm.matrix");
    
     printf
             ("------------------------------------------------------------------------\n");
     printf("The program run was successful...\n");
-    printf("Storing membership matrix in file 'membership_p_get_new_value.matrix'\n\n");
+    printf("Storing membership matrix in file 'membership_fcm.matrix'\n\n");
     return 0;
 }
